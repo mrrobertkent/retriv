@@ -36,6 +36,16 @@ describe('transformersJs pipeline options', () => {
     expect(opts).toMatchObject({ device: 'coreml', dtype: 'q8' })
   })
 
+  it('forwards per-file device and dtype maps', async () => {
+    const device = { 'model.onnx': 'webgpu' } as const
+    const dtype = { 'model.onnx': 'q8' } as const
+
+    await transformersJs({ model: 'bge-base-en-v1.5', device, dtype }).resolve()
+
+    const [, , opts] = pipelineMock.mock.calls[0]!
+    expect(opts).toMatchObject({ device, dtype })
+  })
+
   it('forwards device without overriding the default dtype', async () => {
     await transformersJs({ model: 'bge-small-en-v1.5', device: 'webgpu' }).resolve()
 
@@ -48,8 +58,6 @@ describe('transformersJs pipeline options', () => {
     expect(resolved.dimensions).toBe(1024)
   })
 
-  // Models outside the registry were unusable: dimensions could not be looked
-  // up, so resolve() threw even though the pipeline loaded fine.
   it('probes dimensions for a model missing from the registry', async () => {
     pipelineMock.mockResolvedValue(async () => ({ data: new Float32Array(384) }))
 

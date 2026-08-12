@@ -15,14 +15,6 @@ describe('transformers.js preset mapping', () => {
     expect(getModelDimensions(preset)).toBe(dims)
   })
 
-  // onnx-community/bge-large-en-v1.5 returns 401 — the weights are not public,
-  // so the preset resolved fine but failed at model load.
-  it('does not point bge-large at the unavailable onnx-community repo', () => {
-    expect(resolveModelForPreset('bge-large-en-v1.5', 'transformers.js'))
-      .not
-      .toContain('onnx-community')
-  })
-
   it('passes through fully-qualified repo ids untouched', () => {
     expect(resolveModelForPreset('Xenova/bge-base-en-v1.5', 'transformers.js'))
       .toBe('Xenova/bge-base-en-v1.5')

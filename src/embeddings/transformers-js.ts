@@ -25,7 +25,7 @@ export type TransformersDevice
     | 'webnn'
     | 'webnn-npu'
     | 'webnn-gpu'
-    | (string & {})
+    | 'webnn-cpu'
 
 /** Quantization level supported by Transformers.js */
 export type TransformersDtype
@@ -38,7 +38,10 @@ export type TransformersDtype
     | 'q4'
     | 'bnb4'
     | 'q4f16'
-    | (string & {})
+    | 'q2'
+    | 'q2f16'
+    | 'q1'
+    | 'q1f16'
 
 export interface TransformersEmbeddingOptions {
   /** Model name (e.g., 'bge-base-en-v1.5' or 'Xenova/bge-base-en-v1.5') */
@@ -46,16 +49,14 @@ export interface TransformersEmbeddingOptions {
   /** Embedding dimensions (auto-detected for known models) */
   dimensions?: number
   /**
-   * Execution device. Defaults to the Transformers.js default (CPU in Node).
-   * Set `'coreml'` on Apple Silicon or `'webgpu'` where available to offload
-   * inference from the CPU.
+   * Execution device or per-file device map.
+   * Transformers.js selects the device when this option is omitted.
    */
-  device?: TransformersDevice
+  device?: TransformersDevice | Record<string, TransformersDevice>
   /**
-   * Quantization level (default: `'fp32'`). Lower precision such as `'q8'`
-   * reduces model size and speeds up inference at some cost to accuracy.
+   * Data type or per-file data type map. Defaults to `'fp32'`.
    */
-  dtype?: TransformersDtype
+  dtype?: TransformersDtype | Record<string, TransformersDtype>
   /** Called with model download progress (initiate → download → progress → done → ready) */
   onProgress?: (info: TransformersProgressInfo) => void
 }
@@ -90,10 +91,10 @@ async function clearCorruptedCache(error: unknown, model: string): Promise<boole
  *   embeddings: transformersJs({ model: 'bge-base-en-v1.5' }),
  * })
  *
- * // Offload inference to the GPU / Neural Engine on Apple Silicon
+ * // Run inference with WebGPU
  * const fast = await sqliteVec({
  *   path: 'vectors.db',
- *   embeddings: transformersJs({ model: 'bge-base-en-v1.5', device: 'coreml', dtype: 'q8' }),
+ *   embeddings: transformersJs({ model: 'bge-base-en-v1.5', device: 'webgpu' }),
  * })
  * ```
  */
@@ -108,7 +109,7 @@ export function transformersJs(options: TransformersEmbeddingOptions = {}): Embe
         return cached
 
       const pipelineOpts: Record<string, unknown> = { dtype: options.dtype ?? 'fp32' }
-      if (options.device)
+      if (options.device !== undefined)
         pipelineOpts.device = options.device
       if (options.onProgress)
         pipelineOpts.progress_callback = options.onProgress
@@ -120,10 +121,6 @@ export function transformersJs(options: TransformersEmbeddingOptions = {}): Embe
           throw err
         })
 
-      // Known models resolve from the registry; anything else is probed with a
-      // single embedding, matching how the Ollama provider handles unknown
-      // models. Without this, any Hugging Face repo outside the registry is
-      // unusable even though the pipeline loads fine.
       let dimensions = options.dimensions ?? getModelDimensions(model)
       if (!dimensions) {
         const probe = await extractor(['dimension probe'], { pooling: 'mean', normalize: true })

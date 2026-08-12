@@ -324,40 +324,19 @@ ollama({ model: 'nomic-embed-text' })
 transformersJs({ model: 'Xenova/all-MiniLM-L6-v2' })
 ```
 
-### Transformers.js device and quantization
+### Transformers.js runtime options
 
-By default Transformers.js runs on the CPU at `fp32`. Pass `device` to offload
-inference, and `dtype` to trade accuracy for speed and memory:
+Retriv passes `device` and `dtype` to Transformers.js. Retriv uses `fp32` when
+you omit `dtype`. Transformers.js selects the device when you omit `device`.
 
 ```ts
-// Apple Silicon: run on the GPU / Neural Engine
-transformersJs({ model: 'bge-base-en-v1.5', device: 'coreml' })
+transformersJs({ model: 'bge-base-en-v1.5', device: 'webgpu' })
 
-// Quantized weights: smaller and faster, slightly less accurate
 transformersJs({ model: 'bge-base-en-v1.5', dtype: 'q8' })
 ```
 
-`device` accepts any Transformers.js device (`auto`, `cpu`, `webgpu`, `coreml`,
-`cuda`, `dml`, `webnn`, …) and `dtype` any supported quantization (`fp32`,
-`fp16`, `q8`, `q4`, …). Availability depends on the platform and the
-`onnxruntime-node` build; unsupported combinations fall back or throw at model
-load, so verify on your target before relying on one.
-
-> **Pick the device by measurement, not by name.** Benchmarked on an Apple
-> M5 Max, 120 documents, best of 3 after warm-up (docs/sec, higher is better):
->
-> | Model | `cpu` fp32 | `cpu` q8 | `coreml` fp32 | `webgpu` fp32 |
-> |---|---:|---:|---:|---:|
-> | `bge-small-en-v1.5` | 664 | 652 | 198 | **1713** |
-> | `bge-base-en-v1.5` | 198 | 244 | 68 | **580** |
-> | `Xenova/bge-large-en-v1.5` | 71 | 84 | 9 | **201** |
->
-> `webgpu` was 2.6-2.9x faster than CPU across all three. `coreml` was 3-8x
-> *slower* — it falls back to CPU for unsupported ops and pays for the graph
-> partitioning, with run-to-run variance up to 10x on the larger model.
-> `coreml` + `fp16` fails to load outright on this build (`onnxruntime` graph
-> fusion error). Different hardware will rank differently, which is exactly why
-> this is a caller choice rather than a default.
+Support depends on your Transformers.js version and runtime. Test the selected
+combination on the target system.
 
 ## API
 
